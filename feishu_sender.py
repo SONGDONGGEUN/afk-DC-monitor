@@ -7,12 +7,13 @@ import time
 import requests
 
 
-# (source, matched_in) -> (header_template, source_label)
-_HEADER_STYLES: dict[tuple[str, str], tuple[str, str]] = {
-    ("dc", "title"): ("blue", "DC 뉴afk"),
-    ("dc", "body"): ("orange", "DC 뉴afk"),
-    ("naver", "title"): ("turquoise", "네이버 카페"),
-    ("naver", "body"): ("violet", "네이버 카페"),
+_SOURCE_LABELS: dict[str, str] = {
+    "dc": "DC 뉴afk",
+    "naver": "네이버 카페",
+}
+_SOURCE_TEMPLATES: dict[str, str] = {
+    "dc": "blue",
+    "naver": "green",
 }
 
 
@@ -34,9 +35,8 @@ def _build_card(
 ) -> dict:
     kw_str = ", ".join(f"`{k}`" for k in matched_keywords) if matched_keywords else "-"
     where_label = "본문" if matched_in == "body" else "제목"
-    template, source_label = _HEADER_STYLES.get(
-        (source, matched_in), ("blue", source.upper())
-    )
+    template = _SOURCE_TEMPLATES.get(source, "blue")
+    source_label = _SOURCE_LABELS.get(source, source.upper())
 
     header_parts = [source_label]
     if board:
