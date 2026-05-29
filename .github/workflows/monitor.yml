@@ -33,6 +33,7 @@ jobs:
         run: python main.py
 
       - name: Commit updated state
+        if: success()
         run: |
           if git diff --quiet -- state.json; then
             echo "no state changes"
@@ -43,3 +44,10 @@ jobs:
           git add state.json
           git commit -m "chore: update state [skip ci]"
           git push
+
+      - name: Notify Feishu on failure
+        if: failure()
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
+        run: python notify_failure.py
