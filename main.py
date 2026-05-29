@@ -3,26 +3,37 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
-from dc_scraper import fetch_posts, Post
+from dc_scraper import fetch_posts, fetch_post_body, Post
 from feishu_sender import send_card
 
 ROOT = Path(__file__).parent
 STATE_FILE = ROOT / "state.json"
 KEYWORDS_FILE = ROOT / "keywords.txt"
+KEYWORDS_BODY_FILE = ROOT / "keywords_body.txt"
 
 MAX_ALERTS_PER_RUN = 10
+BODY_FETCH_DELAY_SEC = 0.5
 
 
-def load_keywords() -> list[str]:
-    if not KEYWORDS_FILE.exists():
+def _load_keyword_file(path: Path) -> list[str]:
+    if not path.exists():
         return []
     return [
         ln.strip()
-        for ln in KEYWORDS_FILE.read_text(encoding="utf-8").splitlines()
+        for ln in path.read_text(encoding="utf-8").splitlines()
         if ln.strip() and not ln.strip().startswith("#")
     ]
+
+
+def load_keywords() -> list[str]:
+    return _load_keyword_file(KEYWORDS_FILE)
+
+
+def load_body_keywords() -> list[str]:
+    return _load_keyword_file(KEYWORDS_BODY_FILE)
 
 
 def load_state() -> dict:
@@ -53,13 +64,16 @@ def main() -> int:
         return 1
 
     keywords = load_keywords()
-    if not keywords:
+    body_keywords = load_body_keywords()
+    if not keywords and not body_keywords:
         print("WARN: no keywords loaded; nothing will match", file=sys.stderr)
 
     state = load_state()
     last_seen = int(state.get("last_seen_no", 0))
 
-    print(f"[run] last_seen_no={last_seen} | keywords={keywords}")
+    print(f"[run] last_seen_no={last_seen}")
+    print(f"[run] title keywords ({len(keywords)}): {keywords}")
+    print(f"[run] body  keywords ({len(body_keywords)}): {body_keywords}")
 
     try:
         posts = fetch_posts()
@@ -82,17 +96,34 @@ def main() -> int:
     new_posts = [p for p in posts_sorted if p.no > last_seen]
     print(f"[run] {len(new_posts)} new posts since last run")
 
-    matched: list[tuple[Post, list[str]]] = []
+    matched: list[tuple[Post, list[str], str]] = []  # (post, keywords, where)
+    body_fetches = 0
+    body_errors = 0
     for p in new_posts:
         mk = match_keywords(p.title, keywords)
         if mk:
-            matched.append((p, mk))
+            matched.append((p, mk, "title"))
+            continue
+        if not body_keywords:
+            continue
+        try:
+            time.sleep(BODY_FETCH_DELAY_SEC)
+            body_text = fetch_post_body(p.url)
+            body_fetches += 1
+            bk = match_keywords(body_text, body_keywords)
+            if bk:
+                matched.append((p, bk, "body"))
+        except Exception as e:
+            body_errors += 1
+            print(f"  body-fetch FAIL: [{p.no}] {e}", file=sys.stderr)
 
-    print(f"[run] {len(matched)} matched keywords")
+    print(
+        f"[run] {len(matched)} matched | body_fetches={body_fetches} body_errors={body_errors}"
+    )
 
     sent = 0
     errors = 0
-    for p, mk in matched[:MAX_ALERTS_PER_RUN]:
+    for p, mk, where in matched[:MAX_ALERTS_PER_RUN]:
         try:
             send_card(
                 webhook,
@@ -102,9 +133,10 @@ def main() -> int:
                 dt=p.datetime,
                 url=p.url,
                 matched_keywords=mk,
+                matched_in=where,
             )
             sent += 1
-            print(f"  sent: [{p.no}] {p.title[:50]} | matched={mk}")
+            print(f"  sent: [{p.no}] {p.title[:50]} | matched={mk} in={where}")
         except Exception as e:
             errors += 1
             print(f"  FAIL: [{p.no}] {e}", file=sys.stderr)

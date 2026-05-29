@@ -14,17 +14,24 @@ def _make_signature(timestamp: int, secret: str) -> str:
 
 
 def _build_card(
-    title: str, author: str, dt: str, url: str, matched_keywords: list[str]
+    title: str,
+    author: str,
+    dt: str,
+    url: str,
+    matched_keywords: list[str],
+    matched_in: str = "title",
 ) -> dict:
     kw_str = ", ".join(f"`{k}`" for k in matched_keywords) if matched_keywords else "-"
+    where_label = "본문" if matched_in == "body" else "제목"
+    header_template = "orange" if matched_in == "body" else "blue"
     return {
         "config": {"wide_screen_mode": True},
         "header": {
             "title": {
                 "tag": "plain_text",
-                "content": "🔔 AFK 새 글 알림 (DC 뉴afk)",
+                "content": f"🔔 AFK 새 글 알림 (DC 뉴afk · {where_label} 매칭)",
             },
-            "template": "blue",
+            "template": header_template,
         },
         "elements": [
             {
@@ -55,7 +62,7 @@ def _build_card(
                         "is_short": False,
                         "text": {
                             "tag": "lark_md",
-                            "content": f"**매칭 키워드**\n{kw_str}",
+                            "content": f"**매칭 키워드 ({where_label})**\n{kw_str}",
                         },
                     },
                 ],
@@ -87,11 +94,12 @@ def send_card(
     dt: str,
     url: str,
     matched_keywords: list[str],
+    matched_in: str = "title",
     timeout: int = 10,
 ) -> dict:
     payload: dict = {
         "msg_type": "interactive",
-        "card": _build_card(title, author, dt, url, matched_keywords),
+        "card": _build_card(title, author, dt, url, matched_keywords, matched_in),
     }
     if secret:
         ts = int(time.time())

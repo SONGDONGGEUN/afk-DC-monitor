@@ -29,6 +29,15 @@ class Post:
     recommends: int
 
 
+def fetch_post_body(url: str, timeout: int = 10) -> str:
+    """Fetch and return the plain text body of a single DC post."""
+    r = requests.get(url, headers=HEADERS, timeout=timeout)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.content, "lxml", from_encoding="utf-8")
+    body = soup.select_one("div.write_div")
+    return body.get_text(" ", strip=True) if body else ""
+
+
 def fetch_posts(timeout: int = 15) -> list[Post]:
     r = requests.get(LIST_URL, headers=HEADERS, timeout=timeout)
     r.raise_for_status()
