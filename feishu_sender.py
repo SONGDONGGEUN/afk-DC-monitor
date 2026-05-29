@@ -7,6 +7,15 @@ import time
 import requests
 
 
+# (source, matched_in) -> (header_template, source_label)
+_HEADER_STYLES: dict[tuple[str, str], tuple[str, str]] = {
+    ("dc", "title"): ("blue", "DC 뉴afk"),
+    ("dc", "body"): ("orange", "DC 뉴afk"),
+    ("naver", "title"): ("turquoise", "네이버 카페"),
+    ("naver", "body"): ("violet", "네이버 카페"),
+}
+
+
 def _make_signature(timestamp: int, secret: str) -> str:
     string_to_sign = f"{timestamp}\n{secret}"
     h = hmac.new(string_to_sign.encode("utf-8"), digestmod=hashlib.sha256).digest()
@@ -20,18 +29,29 @@ def _build_card(
     url: str,
     matched_keywords: list[str],
     matched_in: str = "title",
+    source: str = "dc",
+    board: str | None = None,
 ) -> dict:
     kw_str = ", ".join(f"`{k}`" for k in matched_keywords) if matched_keywords else "-"
     where_label = "본문" if matched_in == "body" else "제목"
-    header_template = "orange" if matched_in == "body" else "blue"
+    template, source_label = _HEADER_STYLES.get(
+        (source, matched_in), ("blue", source.upper())
+    )
+
+    header_parts = [source_label]
+    if board:
+        header_parts.append(board)
+    header_parts.append(f"{where_label} 매칭")
+    header_suffix = " · ".join(header_parts)
+
     return {
         "config": {"wide_screen_mode": True},
         "header": {
             "title": {
                 "tag": "plain_text",
-                "content": f"🔔 AFK 새 글 알림 (DC 뉴afk · {where_label} 매칭)",
+                "content": f"🔔 AFK 새 글 알림 ({header_suffix})",
             },
-            "template": header_template,
+            "template": template,
         },
         "elements": [
             {
@@ -95,11 +115,15 @@ def send_card(
     url: str,
     matched_keywords: list[str],
     matched_in: str = "title",
+    source: str = "dc",
+    board: str | None = None,
     timeout: int = 10,
 ) -> dict:
     payload: dict = {
         "msg_type": "interactive",
-        "card": _build_card(title, author, dt, url, matched_keywords, matched_in),
+        "card": _build_card(
+            title, author, dt, url, matched_keywords, matched_in, source, board
+        ),
     }
     if secret:
         ts = int(time.time())

@@ -30,6 +30,7 @@ jobs:
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
+          NAVER_COOKIE: ${{ secrets.NAVER_COOKIE }}
         run: python main.py
 
       - name: Commit updated state

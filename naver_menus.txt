@@ -1,0 +1,10 @@
+# Naver Cafe boards to monitor.
+# Format: menu_id  display_name
+# (One per line. Lines starting with # are ignored.)
+# Full menu list is in SideMenuList API; edit here to add/remove boards.
+
+1   자유게시판
+17  질문&답변
+33  건의 게시판
+34  버그 게시판
+93  스토리 수다
