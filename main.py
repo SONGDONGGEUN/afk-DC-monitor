@@ -23,6 +23,7 @@ NAVER_MENUS_FILE = ROOT / "naver_menus.txt"
 MAX_ALERTS_PER_RUN = 20
 BODY_FETCH_DELAY_SEC = 0.5
 NAVER_PER_PAGE = 20
+FAILURE_ALERT_THRESHOLD = 3  # number of consecutive failing runs before red card
 
 
 def _load_keyword_file(path: Path) -> list[str]:
@@ -298,13 +299,38 @@ def main() -> int:
     _process_dc(state, keywords, body_keywords, webhook, secret, sent_counter)
     _process_naver(state, keywords, body_keywords, webhook, secret, sent_counter)
 
+    # Failure throttling: only fail the workflow (= trigger red card) when
+    # we've hit FAILURE_ALERT_THRESHOLD consecutive failing runs. Transient
+    # blips are absorbed silently.
+    if sent_counter["errors"] == 0:
+        prev = int(state.get("consecutive_failures", 0))
+        if prev:
+            print(f"\n[run] recovered after {prev} consecutive failing run(s)")
+        state["consecutive_failures"] = 0
+    else:
+        state["consecutive_failures"] = int(state.get("consecutive_failures", 0)) + 1
+
     save_state(state)
 
+    cf = int(state.get("consecutive_failures", 0))
     print(
         f"\n[run] done. total_sent={sent_counter['sent']} "
-        f"errors={sent_counter['errors']}"
+        f"errors={sent_counter['errors']} consecutive_failures={cf}"
     )
-    return 0 if sent_counter["errors"] == 0 else 3
+
+    if sent_counter["errors"] == 0:
+        return 0
+    if cf < FAILURE_ALERT_THRESHOLD:
+        print(
+            f"[run] errors present but consecutive_failures={cf} < "
+            f"{FAILURE_ALERT_THRESHOLD}; suppressing red card (transient)"
+        )
+        return 0
+    print(
+        f"[run] PERSISTENT FAILURE: {cf} consecutive failing runs; "
+        f"triggering red card"
+    )
+    return 3
 
 
 if __name__ == "__main__":

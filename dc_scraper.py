@@ -4,6 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
 
+from http_utils import with_retry
+
 GALLERY_ID = "newafk"
 LIST_URL = f"https://gall.dcinside.com/mgallery/board/lists?id={GALLERY_ID}"
 
@@ -29,7 +31,7 @@ class Post:
     recommends: int
 
 
-def fetch_post_body(url: str, timeout: int = 10) -> str:
+def fetch_post_body(url: str, timeout: int = 20) -> str:
     """Fetch and return the plain text body of a single DC post."""
     r = requests.get(url, headers=HEADERS, timeout=timeout)
     r.raise_for_status()
@@ -38,9 +40,13 @@ def fetch_post_body(url: str, timeout: int = 10) -> str:
     return body.get_text(" ", strip=True) if body else ""
 
 
-def fetch_posts(timeout: int = 15) -> list[Post]:
-    r = requests.get(LIST_URL, headers=HEADERS, timeout=timeout)
-    r.raise_for_status()
+def fetch_posts(timeout: int = 30) -> list[Post]:
+    def _do():
+        r = requests.get(LIST_URL, headers=HEADERS, timeout=timeout)
+        r.raise_for_status()
+        return r
+
+    r = with_retry(_do, label="dc.fetch_posts")
     soup = BeautifulSoup(r.content, "lxml", from_encoding="utf-8")
 
     posts: list[Post] = []

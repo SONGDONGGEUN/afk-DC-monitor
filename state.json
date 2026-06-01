@@ -18,5 +18,6 @@
     "93": {
       "last_seen_id": 42917
     }
-  }
+  },
+  "consecutive_failures": 0
 }

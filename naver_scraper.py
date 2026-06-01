@@ -8,6 +8,8 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
+from http_utils import with_retry
+
 CAFE_URL_NAME = "afkjourneykr"
 CAFE_ID = "30996029"
 
@@ -67,7 +69,7 @@ def fetch_articles(
     cookie: str,
     menu_id: int,
     per_page: int = 20,
-    timeout: int = 15,
+    timeout: int = 30,
 ) -> tuple[list[Article], bool]:
     """Fetch latest articles in a single board.
 
@@ -82,8 +84,13 @@ def fetch_articles(
         "search.page": 1,
         "search.perPage": per_page,
     }
-    r = s.get(LIST_API, params=params, timeout=timeout)
-    r.raise_for_status()
+
+    def _do():
+        rr = s.get(LIST_API, params=params, timeout=timeout)
+        rr.raise_for_status()
+        return rr
+
+    r = with_retry(_do, label=f"naver.fetch_articles(menu={menu_id})")
     j = r.json()
     msg = j.get("message", {})
     if msg.get("status") != "200":
@@ -115,7 +122,7 @@ def fetch_articles(
     return articles, is_member
 
 
-def fetch_article_body(cookie: str, article_id: int, timeout: int = 10) -> str:
+def fetch_article_body(cookie: str, article_id: int, timeout: int = 20) -> str:
     """Fetch and return plain-text body of a single article."""
     s = _make_session(cookie)
     s.headers["Referer"] = ARTICLE_URL.format(article_id)
