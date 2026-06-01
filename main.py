@@ -12,7 +12,7 @@ from naver_scraper import (
     fetch_article_body as naver_fetch_body,
     Article,
 )
-from feishu_sender import send_card
+from feishu_sender import send_card, send_cookie_expired_card
 
 ROOT = Path(__file__).parent
 STATE_FILE = ROOT / "state.json"
@@ -24,6 +24,9 @@ MAX_ALERTS_PER_RUN = 20
 BODY_FETCH_DELAY_SEC = 0.5
 NAVER_PER_PAGE = 20
 FAILURE_ALERT_THRESHOLD = 3  # number of consecutive failing runs before red card
+REPO_SECRETS_URL = (
+    "https://github.com/SONGDONGGEUN/afk-DC-monitor/settings/secrets/actions"
+)
 
 
 def _load_keyword_file(path: Path) -> list[str]:
@@ -181,6 +184,8 @@ def _process_naver(
         return
 
     print(f"\n[naver] start (menus: {len(menus)})")
+    saw_authenticated = False
+    saw_unauthenticated = False
 
     for menu_id, menu_name in menus:
         if sent_counter["sent"] >= MAX_ALERTS_PER_RUN:
@@ -208,7 +213,10 @@ def _process_naver(
                 file=sys.stderr,
             )
             sent_counter["errors"] += 1
+            saw_unauthenticated = True
             # don't bail entirely; still process whatever (likely empty) result
+        else:
+            saw_authenticated = True
 
         if not articles:
             print(f"[naver:{menu_id} {menu_name}] no articles returned")
@@ -278,6 +286,24 @@ def _process_naver(
                 )
 
         menu_state["last_seen_id"] = highest_id
+
+    # Send cookie-expired alert ONCE per expiry incident, not every run.
+    # Flag is cleared the moment we see a successful authenticated response.
+    already_alerted = bool(state.get("naver_cookie_alert_sent"))
+    if saw_unauthenticated and not saw_authenticated:
+        if not already_alerted:
+            try:
+                send_cookie_expired_card(webhook, secret, REPO_SECRETS_URL)
+                state["naver_cookie_alert_sent"] = True
+                print("[naver] cookie-expired alert sent")
+            except Exception as e:
+                print(f"[naver] FAIL to send cookie-expired alert: {e}", file=sys.stderr)
+        else:
+            print("[naver] cookie still expired (alert already sent)")
+    elif saw_authenticated and already_alerted:
+        # cookie was refreshed by user
+        state["naver_cookie_alert_sent"] = False
+        print("[naver] cookie restored — alert flag reset")
 
 
 def main() -> int:

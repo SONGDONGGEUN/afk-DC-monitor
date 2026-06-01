@@ -135,6 +135,90 @@ def send_card(
     return r.json()
 
 
+def send_cookie_expired_card(
+    webhook_url: str,
+    secret: str | None,
+    repo_secrets_url: str,
+    timeout: int = 10,
+) -> dict:
+    payload: dict = {
+        "msg_type": "interactive",
+        "card": {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": "🔑 네이버 쿠키 만료 — 재추출 필요",
+                },
+                "template": "yellow",
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": (
+                            "**네이버 카페 알림이 멈춰있습니다.**\n"
+                            "API는 응답하는데 `cafeMember=False`로 돌아와요 "
+                            "— 부 계정 로그인 세션(쿠키)이 만료됐다는 신호입니다.\n"
+                            "DC 알림은 영향 없이 계속 작동합니다."
+                        ),
+                    },
+                },
+                {"tag": "hr"},
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": (
+                            "**재추출 방법 (5분)**\n"
+                            "1. Chrome **시크릿 창** 열기 (`Ctrl+Shift+N`)\n"
+                            "2. naver.com에서 **부 계정**으로 로그인\n"
+                            "3. https://cafe.naver.com/afkjourneykr 접속\n"
+                            "4. **F12** → 상단 **Network** 탭 → **F5** 새로고침\n"
+                            "5. 왼쪽 요청 목록 맨 위 `afkjourneykr` 클릭\n"
+                            "6. 오른쪽 **Headers** → **Request Headers** → "
+                            "`Cookie:` 값 **통째로** 복사 (`NID_AUT`, `NID_SES` 포함되어야 함)\n"
+                            "7. 아래 버튼 → `NAVER_COOKIE` 클릭 → **Update secret** → 새 값 붙여넣기 → Save"
+                        ),
+                    },
+                },
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": (
+                            "다음 자동 실행 (15분 이내)부터 정상 복구되면 "
+                            "본 알림은 자동으로 사라지고, 다음 만료 시 다시 발송됩니다."
+                        ),
+                    },
+                },
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {
+                                "tag": "plain_text",
+                                "content": "🔗 GitHub Secret 업데이트",
+                            },
+                            "url": repo_secrets_url,
+                            "type": "primary",
+                        }
+                    ],
+                },
+            ],
+        },
+    }
+    if secret:
+        ts = int(time.time())
+        payload["timestamp"] = str(ts)
+        payload["sign"] = _make_signature(ts, secret)
+    r = requests.post(webhook_url, json=payload, timeout=timeout)
+    r.raise_for_status()
+    return r.json()
+
+
 def send_text(
     webhook_url: str, secret: str | None, text: str, timeout: int = 10
 ) -> dict:
