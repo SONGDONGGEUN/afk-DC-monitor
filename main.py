@@ -13,6 +13,7 @@ from naver_scraper import (
     Article,
 )
 from feishu_sender import send_card, send_cookie_expired_card
+from feishu_base_writer import create_record
 
 ROOT = Path(__file__).parent
 STATE_FILE = ROOT / "state.json"
@@ -121,12 +122,12 @@ def _process_dc(
     new_posts = [p for p in posts_sorted if p.no > last_seen]
     print(f"[dc] last_seen={last_seen} new={len(new_posts)}")
 
-    matched: list[tuple[Post, list[str], str]] = []
+    matched: list[tuple[Post, list[str], str, str]] = []
     body_fetches = body_errors = 0
     for p in new_posts:
         mk = match_keywords(p.title, keywords)
         if mk:
-            matched.append((p, mk, "title"))
+            matched.append((p, mk, "title", ""))
             continue
         if not body_keywords:
             continue
@@ -136,14 +137,17 @@ def _process_dc(
             body_fetches += 1
             bk = match_keywords(body, body_keywords)
             if bk:
-                matched.append((p, bk, "body"))
+                matched.append((p, bk, "body", body))
         except Exception as e:
             body_errors += 1
             print(f"  [dc] body-fetch FAIL [{p.no}]: {e}", file=sys.stderr)
 
     print(f"[dc] matched={len(matched)} body_fetches={body_fetches} body_errors={body_errors}")
 
-    for p, mk, where in matched[: MAX_ALERTS_PER_RUN - sent_counter["sent"]]:
+    app_id = os.environ.get("FEISHU_APP_ID", "").strip()
+    app_secret = os.environ.get("FEISHU_APP_SECRET", "").strip()
+
+    for p, mk, where, body in matched[: MAX_ALERTS_PER_RUN - sent_counter["sent"]]:
         try:
             send_card(
                 webhook,
@@ -161,6 +165,20 @@ def _process_dc(
         except Exception as e:
             sent_counter["errors"] += 1
             print(f"  [dc] send FAIL [{p.no}]: {e}", file=sys.stderr)
+
+        if app_id and app_secret:
+            create_record(
+                app_id, app_secret,
+                title=p.title,
+                url=p.url,
+                dt_str=p.datetime,
+                source="dc",
+                matched_keywords=mk,
+                views=p.views,
+                likes=p.recommends,
+                comments=0,
+                body=body,
+            )
 
     state["dc"]["last_seen_no"] = highest_no
 
@@ -235,12 +253,12 @@ def _process_naver(
             f"[naver:{menu_id} {menu_name}] last_seen={last_seen} new={len(new_arts)}"
         )
 
-        matched: list[tuple[Article, list[str], str]] = []
+        matched: list[tuple[Article, list[str], str, str]] = []
         body_fetches = body_errors = 0
         for a in new_arts:
             mk = match_keywords(a.subject, keywords)
             if mk:
-                matched.append((a, mk, "title"))
+                matched.append((a, mk, "title", ""))
                 continue
             if not body_keywords:
                 continue
@@ -250,7 +268,7 @@ def _process_naver(
                 body_fetches += 1
                 bk = match_keywords(body, body_keywords)
                 if bk:
-                    matched.append((a, bk, "body"))
+                    matched.append((a, bk, "body", body))
             except Exception as e:
                 body_errors += 1
                 print(
@@ -263,7 +281,10 @@ def _process_naver(
             f"body_fetches={body_fetches} body_errors={body_errors}"
         )
 
-        for a, mk, where in matched[: MAX_ALERTS_PER_RUN - sent_counter["sent"]]:
+        naver_app_id = os.environ.get("FEISHU_APP_ID", "").strip()
+        naver_app_secret = os.environ.get("FEISHU_APP_SECRET", "").strip()
+
+        for a, mk, where, body in matched[: MAX_ALERTS_PER_RUN - sent_counter["sent"]]:
             try:
                 send_card(
                     webhook,
@@ -283,6 +304,20 @@ def _process_naver(
                 sent_counter["errors"] += 1
                 print(
                     f"  [naver:{menu_id}] send FAIL [{a.id}]: {e}", file=sys.stderr
+                )
+
+            if naver_app_id and naver_app_secret:
+                create_record(
+                    naver_app_id, naver_app_secret,
+                    title=a.subject,
+                    url=a.url,
+                    dt_str=a.datetime,
+                    source="naver",
+                    matched_keywords=mk,
+                    views=a.views,
+                    likes=0,
+                    comments=a.comments,
+                    body=body,
                 )
 
         menu_state["last_seen_id"] = highest_id
