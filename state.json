@@ -4,7 +4,7 @@
   },
   "naver": {
     "1": {
-      "last_seen_id": 46007
+      "last_seen_id": 46009
     },
     "17": {
       "last_seen_id": 45992
@@ -19,5 +19,5 @@
       "last_seen_id": 42917
     }
   },
-  "consecutive_failures": 0
+  "consecutive_failures": 1
 }
