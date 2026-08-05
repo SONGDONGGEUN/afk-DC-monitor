@@ -193,8 +193,7 @@ def _process_naver(
 ) -> None:
     cookie = os.environ.get("NAVER_COOKIE", "").strip()
     if not cookie:
-        print("\n[naver] NAVER_COOKIE not set, skipping Naver Cafe")
-        return
+        print("\n[naver] NAVER_COOKIE not set, running without cookie (public cafe)")
 
     menus = load_naver_menus()
     if not menus:
@@ -226,13 +225,10 @@ def _process_naver(
 
         if not is_member:
             print(
-                f"[naver:{menu_id} {menu_name}] WARN: cafeMember=False -- "
-                "cookie likely expired; refresh NAVER_COOKIE secret",
-                file=sys.stderr,
+                f"[naver:{menu_id} {menu_name}] INFO: cafeMember=False (public access)"
             )
-            sent_counter["errors"] += 1
             saw_unauthenticated = True
-            # don't bail entirely; still process whatever (likely empty) result
+            # public cafe — articles still returned without login, no error
         else:
             saw_authenticated = True
 
@@ -322,10 +318,10 @@ def _process_naver(
 
         menu_state["last_seen_id"] = highest_id
 
-    # Send cookie-expired alert ONCE per expiry incident, not every run.
-    # Flag is cleared the moment we see a successful authenticated response.
+    # Send cookie-expired alert only when a cookie was provided but is no longer valid.
+    # If no cookie is set, we're intentionally using public access — no alert needed.
     already_alerted = bool(state.get("naver_cookie_alert_sent"))
-    if saw_unauthenticated and not saw_authenticated:
+    if cookie and saw_unauthenticated and not saw_authenticated:
         if not already_alerted:
             try:
                 send_cookie_expired_card(webhook, secret, REPO_SECRETS_URL)

@@ -48,10 +48,11 @@ class NaverAuthError(RuntimeError):
     """Raised when the Naver cookie no longer grants member access."""
 
 
-def _make_session(cookie: str) -> requests.Session:
+def _make_session(cookie: str = "") -> requests.Session:
     s = requests.Session()
     headers = dict(HEADERS_BASE)
-    headers["Cookie"] = cookie
+    if cookie:
+        headers["Cookie"] = cookie
     s.headers.update(headers)
     return s
 
