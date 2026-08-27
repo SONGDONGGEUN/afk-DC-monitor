@@ -1,6 +1,6 @@
 {
   "dc": {
-    "last_seen_no": 252748
+    "last_seen_no": 252751
   },
   "naver": {
     "1": {
@@ -16,7 +16,7 @@
       "last_seen_id": 47047
     },
     "93": {
-      "last_seen_id": 47127
+      "last_seen_id": 47154
     }
   },
   "consecutive_failures": 0,
