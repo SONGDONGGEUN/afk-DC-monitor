@@ -1,6 +1,6 @@
 {
   "dc": {
-    "last_seen_no": 252955
+    "last_seen_no": 252956
   },
   "naver": {
     "1": {
@@ -19,6 +19,6 @@
       "last_seen_id": 47154
     }
   },
-  "consecutive_failures": 0,
+  "consecutive_failures": 1,
   "naver_cookie_alert_sent": false
 }
