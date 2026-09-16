@@ -7,7 +7,7 @@
       "last_seen_id": 47483
     },
     "17": {
-      "last_seen_id": 47481
+      "last_seen_id": 47485
     },
     "33": {
       "last_seen_id": 47283
@@ -19,6 +19,6 @@
       "last_seen_id": 47207
     }
   },
-  "consecutive_failures": 0,
+  "consecutive_failures": 1,
   "naver_cookie_alert_sent": true
 }
