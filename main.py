@@ -203,6 +203,7 @@ def _process_naver(
     print(f"\n[naver] start (menus: {len(menus)})")
     saw_authenticated = False
     saw_unauthenticated = False
+    saw_articles = False
 
     for menu_id, menu_name in menus:
         if sent_counter["sent"] >= MAX_ALERTS_PER_RUN:
@@ -235,6 +236,8 @@ def _process_naver(
         if not articles:
             print(f"[naver:{menu_id} {menu_name}] no articles returned")
             continue
+
+        saw_articles = True
 
         articles_sorted = sorted(articles, key=lambda a: a.id)
         highest_id = articles_sorted[-1].id
@@ -321,7 +324,7 @@ def _process_naver(
     # Send cookie-expired alert only when a cookie was provided but is no longer valid.
     # If no cookie is set, we're intentionally using public access — no alert needed.
     already_alerted = bool(state.get("naver_cookie_alert_sent"))
-    if cookie and saw_unauthenticated and not saw_authenticated:
+    if cookie and saw_unauthenticated and not saw_authenticated and not saw_articles:
         if not already_alerted:
             try:
                 send_cookie_expired_card(webhook, secret, REPO_SECRETS_URL)

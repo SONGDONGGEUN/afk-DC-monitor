@@ -20,5 +20,5 @@
     }
   },
   "consecutive_failures": 0,
-  "naver_cookie_alert_sent": true
+  "naver_cookie_alert_sent": false
 }
